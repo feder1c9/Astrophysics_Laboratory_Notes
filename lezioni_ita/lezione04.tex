@@ -1,1 +1,267 @@
-\chapter{Lezione 4 - }
+\chapter{Lezione 4 - 22/10/2026}
+
+\section{Riduzione Dati e Fotometria di Apertura con DS9}
+
+La lezione riprende l'utilizzo del software \textbf{DS9} per l'analisi delle immagini. Ricapitolando i concetti precedenti, il punto di partenza è una classica immagine astronomica, simile a quelle che verranno acquisite durante le future sessioni osservative.
+
+L'obiettivo principale dell'analisi è isolare una specifica stella in esame (ad esempio, una stella variabile con le proprie peculiarità fisiche e periodicità) e ricavarne le informazioni fondamentali. Il dato primario da estrarre è il \textbf{flusso integrato} che la sorgente sta emettendo nel momento specifico dell'osservazione.
+
+\subsection{Definizione di Flusso Integrato e Bolometrico}
+
+A differenza della \textit{spettroscopia}, in cui il flusso è disperso nelle varie lunghezze d'onda ($\lambda$), in fotometria si lavora con il \textbf{flusso integrato}. Esso rappresenta tutta l'energia inviata dalla stella e ricevuta dall'osservatore (sotto l'atmosfera terrestre) all'interno di una specifica \textbf{banda passante} o \textbf{filtro}.
+
+L'immagine presa in esame è stata acquisita con un \textbf{filtro R} (Red). Tale filtro possiede una lunghezza d'onda efficace ($\lambda_{\text{eff}}$) centrata nella regione del rosso, corrispondente a circa $650 \text{ nm}$ (ovvero $6500 \text{ \AA}$), ed è caratterizzato da una specifica larghezza di banda. Tutta la radiazione esterna a questa finestra, sia essa nella parte più blu o più rossa dello spettro, risulta invisibile al sensore.
+
+Questo processo implica che non stiamo misurando il \textbf{flusso bolometrico}. Considerando la \textbf{Spectral Energy Distribution (SED)}, il flusso bolometrico corrisponde all'integrale di tutta l'energia sottesa dalla curva di Planck (la \textit{planckiana} di corpo nero) da zero a infinito:
+\begin{equation}
+F_{\text{bol}} = \int_{0}^{\infty} F(\lambda) d\lambda
+\end{equation}
+
+Al contrario, il flusso misurato all'interno di una particolare banda è una \textbf{media pesata} della porzione di planckiana intercettata dal filtro. Poiché la curva di trasmissione del filtro ha un picco centrale ed è tendenzialmente simmetrica, la regione centrale ha un "peso" maggiore rispetto ai bordi. Dal punto di vista matematico, il flusso in banda è rappresentabile da un integrale del tipo:
+\begin{equation}
+F_{\text{banda}} = \int F(\lambda) I(\lambda) d\lambda
+\end{equation}
+dove $F(\lambda)$ è il flusso intrinseco della sorgente e $I(\lambda)$ è la funzione di trasmissione del filtro.
+
+\section{Stima del Background (Fondo Cielo)}
+
+Un passaggio critico è la valutazione del \textbf{background} (il rumore di fondo cielo). Per stimarlo, si definisce un \textbf{annulus} (anello circolare) attorno alla posizione della stella.
+
+Il background non è costante, ma può variare spazialmente e localmente lungo tutto il \textit{frame} (fotogramma). Pertanto, la regola generale impone di misurare il valore di fondo il più vicino possibile all'oggetto in esame.
+
+Tuttavia, in astronomia sperimentale occorre spesso scendere a compromessi. Se la stella osservata non è isolata (ad esempio, se si trova in un ammasso stellare molto affollato), l'annulus potrebbe intercettare altre sorgenti. In tali casi, ci si deve adattare cercando una zona di background che sia sufficientemente vicina alla stella target, ma rigorosamente priva di altre stelle contaminanti.
+
+\subsection{Oggettività della Fotometria vs Spettroscopia}
+Si apre qui una breve parentesi: la riduzione dei dati fotometrici è un procedimento relativamente oggettivo. Pur essendoci scelte arbitrarie (come il posizionamento esatto dell'annulus per il background), i passaggi matematici sono fissati. Al contrario, la riduzione delle immagini spettroscopiche (ovvero il passaggio da un'immagine grezza a una funzione monodimensionale dell'energia rispetto alla lunghezza d'onda) è un processo in cui la distribuzione finale dell'energia dipende in modo molto più sensibile dalle scelte metodologiche compiute dall'operatore durante l'estrazione.
+
+\section{Calcolo del Flusso Netto}
+
+L'obiettivo finale del processo è ricavare il \textbf{flusso netto} della stella target all'interno del filtro prescelto (filtro che, ricordiamo, è un hardware ottico posto fisicamente tra il telescopio e la camera CCD, che intercetta solo specifiche porzioni di spettro come il blu, il V o il rosso).
+
+La formula fondamentale per il flusso netto è:
+\begin{equation}
+F_{\text{netto}} = \Sigma_{\text{apertura}} - (N_{\text{ap}} \cdot B)
+\end{equation}
+dove:
+\begin{itemize}
+\item $\Sigma_{\text{apertura}}$ è la somma totale dei conteggi misurati nell'apertura circolare scelta per la stella (\textit{sum over the aperture}).
+\item $N_{\text{ap}}$ è il numero di pixel contenuti nell'apertura della stella.
+\item $B$ è il valore medio del background per singolo pixel.
+\end{itemize}
+
+\section{Analisi dell'Errore e Varianza Totale}
+
+L'analisi di un dataset reale per studiare la variabilità stellare richiede misurazioni dipendenti dal tempo su numerose acquisizioni (spesso 100, 150 o 200 immagini). Per questi volumi, l'utilizzo interattivo di DS9 non è scalabile, e si ricorre a \textit{pipeline} automatizzate. Tuttavia, è imperativo comprendere le fonti di rumore sottostanti per associare il corretto errore sperimentale a ciascuna misurazione.
+
+Il rumore del segnale può essere formalizzato sommando tre contributi distinti alla varianza totale ($\sigma_{\text{tot}}^2$):
+
+\begin{enumerate}
+\item \textbf{Rumore Fotonico (Sorgente):} Regolato dalla statistica di Poisson, l'errore è pari alla radice quadrata del numero di fotoni. Per calcolarlo, è necessario convertire il flusso netto strumentale (\textit{ADU}) in numero di fotoni, moltiplicandolo per il \textbf{gain} dello strumento (che, nel caso specifico di questa strumentazione, ha un valore numerico pari a $0.82$).
+\begin{equation}
+N_{\text{fotoni}} = F_{\text{netto}} \cdot \text{gain}
+\end{equation}
+La componente di varianza puramente poissoniana sarà quindi uguale a $N_{\text{fotoni}}$. Questo sarebbe l'unico errore presente se il sensore e il cielo non introducessero contributi aggiuntivi.
+
+```
+\item \textbf{Rumore del Background nell'Apertura:} La fluttuazione del fondo cielo ($\sigma_{\text{sky}}$) si propaga su tutti i pixel inclusi nell'apertura della stella. Questo termine contribuisce alla varianza totale per una quantità pari a:
+\begin{equation}
+N_{\text{ap}} \cdot \sigma_{\text{sky}}^2
+\end{equation}
+
+\item \textbf{Errore sulla Media del Background:} Rappresenta l'incertezza sulla stima del valore medio del fondo cielo calcolato nell'annulus. Dalla statistica elementare, l'errore sulla media scala come $\frac{\sigma}{\sqrt{N}}$. Per minimizzare questo errore, si cerca di espandere la regione dell'annulus per includere quanti più pixel possibili ($N_{\text{sky}}$). Se passiamo da un annulus di 50 pixel a uno di 1000 pixel, l'errore sulla stima della media si abbatte drasticamente.
+
+Tuttavia, l'allargamento incontra un limite rigido nei campi affollati: se si include accidentalmente una sorgente luminosa nell'annulus, il valore di $\sigma_{\text{sky}}$ subisce un'impennata che annulla il vantaggio dell'elevato numero di pixel. Questo errore sulla media si propaga poi al flusso netto (venendo moltiplicato per il numero di pixel dell'apertura stellare), determinando un contributo alla varianza finale pari a:
+\begin{equation}
+\frac{\sigma_{\text{sky}}^2}{N_{\text{sky}}} \cdot N_{\text{ap}}^2
+\end{equation}
+
+```
+
+\end{enumerate}
+
+La deviazione standard totale (l'errore finale associato alla misura) sarà la radice quadrata della somma di questi tre contributi. Valutando il rapporto segnale/rumore (SNR) reale al netto di tutti questi disturbi strumentali e celesti, per i dati in esame si ottiene un rapporto di circa $800$ (es. $790$), indicando una misurazione di altissima qualità.
+
+\subsection{Ottimizzazione delle Dimensioni dell'Apertura (PSF)}
+
+Un parametro critico è la dimensione dell'apertura focale posta sulla stella. Osservando il profilo spaziale della sorgente (\textbf{Point Spread Function, PSF}), misuriamo l'allargamento del segnale sui pixel (spesso stimato tramite la \textbf{FWHM}).
+
+Si potrebbe essere tentati di utilizzare un approccio estremamente conservativo: adottare un'apertura circolare molto larga per assicurarsi matematicamente di catturare il 100% del flusso della stella, preoccupandosi unicamente di non includere altre sorgenti esterne. \textbf{Questo approccio è profondamente errato.}
+
+Aumentare arbitrariamente il raggio dell'apertura accresce il valore di $N_{\text{ap}}$. Poiché, come visto, le componenti di varianza del fondo cielo dipendono linearmente e quadraticamente da $N_{\text{ap}}$, allargare l'area di integrazione fa aumentare esponenzialmente il rumore totale introdotto, deprimendo drasticamente il rapporto segnale/rumore della misurazione.
+
+\section{Automatizzazione dell'Analisi}
+
+Per gestire le grandi quantità di immagini, l'approccio manuale con DS9 va sostituito con linguaggi vettoriali come \textbf{IDL} (o analoghi). Tali linguaggi permettono di calcolare matricialmente le equazioni fondamentali viste (in primis la sottrazione del background moltiplicato per i pixel dell'apertura dal flusso grezzo) sostituendo procedure dispendiose ("chilometri di codice/linee") con script efficienti per l'estrazione fotometrica in serie.
+
+\section{Calcolo del Flusso Netto e Conversione in Fotoni}
+
+Il primo passaggio fondamentale dell'analisi consiste nel calcolare il flusso netto della sorgente stellare. Per farlo, si sottrae dal flusso totale misurato all'interno dell'apertura il contributo del \textbf{background} (fondo cielo), e successivamente si converte il risultato da unità strumentali (\textbf{ADU}) a fotoni fisici.
+
+La formula da applicare è la seguente:
+\begin{equation}
+F_{\text{netto}} = \left( F_{\text{misurato}} - N_{\text{ap}} \cdot B \right) \cdot \text{gain}
+\end{equation}
+dove:
+\begin{itemize}
+\item $F_{\text{misurato}}$ è il flusso totale grezzo misurato nell'apertura circolare;
+\item $N_{\text{ap}}$ è il numero di pixel contenuti all'interno dell'apertura;
+\item $B$ è il valore medio del background per singolo pixel;
+\item $\text{gain}$ è il fattore di conversione dello strumento, necessario per ottenere il flusso netto in numero di \textbf{fotoni} anziché in ADU.
+\end{itemize}
+
+\section{Quantificazione della Varianza e dell'Errore Totale}
+
+Una volta calcolato il flusso netto, è necessario quantificare l'errore associato, ovvero la deviazione standard totale ($\sigma_{\text{tot}}$). Per comodità di calcolo, si lavora inizialmente con la \textbf{varianza} ($\sigma_{\text{tot}}^2$), sommando i tre contributi di rumore, per poi estrarre un'unica radice quadrata alla fine del processo.
+
+I tre contributi che formano la varianza totale sono:
+\begin{enumerate}
+\item Il \textbf{rumore di Poisson della sorgente}, che in varianza è pari al flusso netto in fotoni: $F_{\text{netto}}$.
+\item Il \textbf{rumore del fondo cielo} integrato sull'area dell'apertura: $N_{\text{ap}} \cdot \sigma_{\text{sky}}^2$.
+\item L'\textbf{errore sulla stima della media del background}, propagato sull'area dell'apertura: $\frac{N_{\text{ap}}^2 \cdot \sigma_{\text{sky}}^2}{N_{\text{bg}}}$, dove $N_{\text{bg}}$ è il numero totale di pixel utilizzati per calcolare il background.
+\end{enumerate}
+
+L'equazione completa per la varianza risulta quindi:
+\begin{equation}
+\sigma_{\text{tot}}^2 = F_{\text{netto}} + \left( N_{\text{ap}} \cdot \sigma_{\text{sky}}^2 \right) + \left( \frac{N_{\text{ap}}^2 \cdot \sigma_{\text{sky}}^2}{N_{\text{bg}}} \right)
+\end{equation}
+
+Tale calcolo dovrà essere ripetuto iterativamente per ogni diverso valore del raggio di apertura scelto.
+
+\section{Analisi Multiraggio (Curve di Crescita)}
+
+Lavorando con il software \textbf{DS9}, l'obiettivo è misurare il flusso scegliendo una serie di aperture di dimensioni crescenti attorno alla stella in esame. Ad esempio, si possono selezionare raggi di $3, 5, 7, 10, 12, 14, 15$ e $20$ pixel.
+
+Si osserverà che:
+\begin{itemize}
+\item Le prime misurazioni, con raggi di $3$ e $5$ pixel, cadranno interamente all'interno della \textbf{PSF} (Point Spread Function) della stella.
+\item Le aperture progressivamente più larghe (da $10$ fino a $20$ pixel) conterranno tutto il flusso della stella, ma includeranno una quantità sempre maggiore di background.
+\end{itemize}
+
+Per condurre un'analisi rigorosa, è necessario effettuare almeno sei misurazioni utilizzando i seguenti valori di raggio di apertura, tutti rigorosamente centrati sulla stella: $3, 5, 7, 10, 15$ e $20$ pixel.
+Per ognuna di queste sei aperture si dovranno misurare:
+\begin{itemize}
+\item I 6 flussi totali grezzi;
+\item I 6 valori corrispondenti al numero di pixel dell'apertura ($N_{\text{ap}}$);
+\item I 6 flussi netti;
+\item I 6 valori di rumore associati.
+\end{itemize}
+
+\section{Automatizzazione del Calcolo tramite Vettori}
+
+Eseguire questi calcoli manualmente per ogni singola apertura risulta inefficiente. Per questo motivo, è fondamentale introdurre l'uso di un \textbf{codice di programmazione} basato sui vettori.
+
+Un vettore è un'entità matematica definita da un certo numero di componenti. In questo contesto, possiamo definire un vettore \textbf{aperture} ($ap$) costituito da 6 elementi interi corrispondenti ai raggi scelti:
+\begin{equation}
+ap = [3, 5, 7, 10, 15, 20]
+\end{equation}
+
+Parallelamente, a misurazioni avvenute, si definirà un vettore $nx$ contenente il numero di pixel corrispondente a ciascuna di queste aperture.
+Affinché le operazioni matematiche (come il calcolo del flusso o del rumore) funzionino correttamente in ambiente di programmazione, i vettori devono rispettare due regole fondamentali:
+\begin{enumerate}
+\item Devono avere dimensioni uguali (stesso numero di elementi).
+\item Le operazioni agiscono in maniera \textbf{posizionale} (elemento per elemento).
+\end{enumerate}
+Ad esempio, calcolando il prodotto $ap \cdot nx$, il codice moltiplicherà la posizione indice zero del primo vettore ($ap[0] = 3$) esclusivamente con la posizione indice zero del secondo vettore ($nx[0]$). È responsabilità dell'operatore assicurarsi che i dati inseriti nel vettore $nx$ siano allineati correttamente con i raggi corrispondenti.
+
+\section{Esercitazione Pratica in DS9: Impostazione del Background}
+
+Per standardizzare i calcoli tra tutti gli operatori, procediamo con la misurazione pratica in DS9 impostando gli stessi parametri geometrici per l'estrazione del background.
+
+\subsection{Coordinate e Dimensioni dell'Annulus}
+Centriamo l'analisi su una specifica stella di riferimento, impostando i seguenti parametri geometrici per la regione circolare e per l'\textbf{annulus} del background:
+\begin{itemize}
+\item \textbf{Centro dell'oggetto (Coordinate $X, Y$):} $680.4, 1172.4$
+\item \textbf{Raggio interno dell'annulus:} $10$ pixel
+\item \textbf{Raggio esterno dell'annulus:} $20$ pixel
+\end{itemize}
+
+Impostando questi valori, il software eseguirà la statistica all'interno della corona circolare definita.
+
+\subsection{Verifica dei Parametri Estratti}
+Se l'impostazione è corretta, i risultati estratti da DS9 dovrebbero restituire valori coerenti con i seguenti:
+\begin{itemize}
+\item \textbf{Numero di pixel del background ($N_{\text{bg}}$):} Circa $141$ pixel (piccole oscillazioni nell'ordine di $141-145$ pixel sono imputabili a minime differenze nel sub-pixel rendering o al posizionamento del cursore).
+\item \textbf{Background medio per pixel ($B$):} Circa $1617$ ADU.
+\end{itemize}
+
+\textit{Nota operativa per la risoluzione dei problemi in DS9:} Qualora si ottenessero valori completamente anomali (es. un'errata selezione dell'area di interesse o letture nulle), è probabile che si sia inavvertitamente cliccato sulla barra della scala dei colori anziché sull'area dell'immagine. In tal caso, deselezionare e ripetere la centratura sulla stella indicata.
+
+\section{Note Operative in DS9: Risoluzione dei Problemi e Mappatura}
+
+Durante l'utilizzo pratico del software \textbf{DS9} per la valutazione del background, è comune riscontrare leggere discrepanze nei valori numerici estratti dai vari operatori (ad esempio valori di $941, 944$ o $1606$ \text{ADU}). Tali differenze non devono destare preoccupazione, in quanto dipendono dal posizionamento millimetrico del cursore.
+
+Un errore procedurale frequente consiste nel cliccare inavvertitamente sulla barra della scala dei colori anziché sull'area dell'immagine, alterando i risultati. Per assicurarsi che la regione sia correttamente recepita dal software (soprattutto se si lavora tramite macchina virtuale), è consigliabile utilizzare in sequenza i comandi \textbf{Apply}, poi \textbf{Generate} e nuovamente \textbf{Apply}.
+
+\section{Definizione della Regione Stellare e Scelta delle Aperture}
+
+Una volta consolidati e salvati i valori del background, l'annulus utilizzato per il fondo cielo può essere messo da parte. Si procede quindi con la definizione della regione centrale per la misurazione del flusso della stella.
+
+\begin{enumerate}
+\item Selezionare come forma geometrica il cerchio (\textbf{Shape: Circle}).
+\item Assegnare un'etichetta identificativa, ad esempio inserendo il testo \textbf{"Star"}.
+\item Centrare rigorosamente la regione sulle coordinate esatte dell'oggetto. Come stabilito in precedenza, le coordinate di riferimento sono:
+\begin{equation}
+X = 680.4, \quad Y = 1172.4
+\end{equation}
+\end{enumerate}
+
+Per costruire la curva di crescita e analizzare la propagazione dell'errore, è necessario misurare il flusso per una serie di aperture circolari concentriche. I raggi scelti per queste sei aperture sono: $3, 5, 7, 10, 15$ e $20$ pixel.
+
+\section{Introduzione a IDL: Sintassi e Creazione dei Vettori}
+
+Per gestire l'estrazione e l'elaborazione dei dati senza dover ripetere manualmente i calcoli, si utilizza il linguaggio di programmazione \textbf{IDL} (o un terminale analogo per l'analisi dati).
+
+Per iniziare, si definisce il vettore delle aperture, nominandolo $ap$. La sintassi di IDL per la creazione di un vettore richiede l'uso delle parentesi quadre, con gli elementi separati da virgole. Digitando nel \textit{prompt} del terminale, il comando sarà:
+\begin{equation}
+ap = [3, 5, 7, 10, 15, 20]
+\end{equation}
+
+Premendo il tasto \textbf{Invio}, se il comando è digitato correttamente, il terminale tornerà al prompt senza restituire messaggi. Se si commettono errori di digitazione (ad esempio omettendo la parentesi quadra di chiusura o inserendo una doppia virgola), il compilatore restituirà un \textbf{Syntax Error}.
+È importante notare che l'inserimento di un punto al posto della virgola (es. $15.2$) non genera un errore di sintassi, in quanto il compilatore interpreterà il numero come un valore decimale (\textit{float}) anziché intero.
+
+\subsection{Comandi Utili e Tipizzazione dei Dati in IDL}
+
+Per verificare i dati allocati in memoria e comprendere le caratteristiche dei vettori creati, si possono utilizzare due comandi fondamentali:
+
+\begin{itemize}
+\item \textbf{Print:} Digitando \texttt{print, ap}, il terminale restituirà a schermo la lista degli elementi contenuti nel vettore.
+\item \textbf{Help:} Digitando \texttt{help, ap}, il sistema fornirà le specifiche sulla natura della variabile.
+\end{itemize}
+
+Nel caso specifico, il comando \texttt{help} indicherà che $ap$ è un \textbf{INTARR} (\textit{Integer Array}), ovvero un vettore composto da numeri interi, e ne indicherà le dimensioni. IDL utilizza indici a partire da zero; pertanto, un vettore unidimensionale di 6 elementi avrà un indice che va da $0$ a $5$.
+
+Una regola rigorosa di IDL (a differenza di linguaggi più elastici come Python) è l'omogeneità dei dati all'interno degli array: un vettore deve essere composto \textit{esclusivamente} da numeri interi (\textit{integer}) o \textit{esclusivamente} da numeri in virgola mobile (\textit{float}). Non è possibile creare un vettore ibrido.
+
+\section{Estrazione Sequenziale dei Dati e Popolamento Iterativo}
+
+Si procede ora all'estrazione dei dati fisici da DS9 tramite la funzione \textbf{Analysis $\rightarrow$ Statistics}, associandoli ai rispettivi vettori in IDL. Tali vettori, per comodità, verranno inizializzati e aggiornati elemento per elemento (sebbene in procedure più avanzate si preferisca far leggere questi valori direttamente da un file di testo).
+
+\subsection{Misurazione con Raggio = 3 Pixel}
+Impostando in DS9 il raggio della regione circolare a $3$ pixel, si estraggono i primi due valori fondamentali:
+\begin{itemize}
+\item Il numero di pixel integrati ($N_{\text{pix}}$), che risulta essere circa $30$ (o $28$ a seconda dei sub-pixel).
+\item La somma dei conteggi nell'apertura ($\Sigma_{\text{apertura}}$, che in IDL chiameremo $sap$), che risulta essere pari a $737124$ \text{ADU}.
+\end{itemize}
+Si inizializzano quindi i relativi vettori in IDL con il primo elemento:
+\begin{equation}
+npix = [30]
+\end{equation}
+\begin{equation}
+sap = [737124]
+\end{equation}
+
+\subsection{Misurazione con Raggio = 5 Pixel}
+Si modifica il raggio in DS9 portandolo a $5$ pixel e si esegue nuovamente l'\textit{Apply}. I nuovi valori estratti saranno:
+\begin{itemize}
+\item $N_{\text{pix}} = 79$
+\item $sap = 1092375$ \text{ADU}
+\end{itemize}
+Per aggiornare i vettori in IDL senza dover riscrivere tutto il comando, è sufficiente richiamare lo storico premendo la freccia direzionale verso l'alto sulla tastiera, posizionarsi prima della parentesi quadra di chiusura, e aggiungere i nuovi elementi separati da virgola:
+\begin{equation}
+npix = [30, 79]
+\end{equation}
+\begin{equation}
+sap = [737124, 1092375]
+\end{equation}
+
+Questa medesima operazione iterativa di lettura su DS9 e aggiornamento dei vettori in IDL dovrà essere completata in sequenza per i restanti valori di apertura previsti: $7, 10, 15$ e $20$ pixel.
