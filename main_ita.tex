@@ -1,0 +1,80 @@
+\documentclass[a4paper, 10 pt]{book}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{mathtools}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{latexsym}
+\usepackage{titling}
+\usepackage{braket}
+\usepackage{tikz}
+
+
+\newtheorem{definizione}{Definizione.}
+\newtheorem{osservazione}{Osservazione}
+\newtheorem{esempio}{Esempio}
+\newtheorem{teorema}{Teorema}[section]
+\newtheorem{exr}{Esercizio}
+
+
+\newcommand{\numberset}{\mathbb}
+\newcommand{\N}{\numberset{N}}
+\newcommand{\R}{\numberset{R}}
+\newcommand{\C}{\numberset{C}}
+\newcommand{\Z}{\numberset{Z}}
+\newcommand{\Q}{\numberset{Q}}
+\newcommand{\E}{\numberset{E}}
+\newcommand{\rel}[1][R]{\mathrel{\mathcal{#1}}}
+
+\begin{document}
+
+\begin{titlepage}
+		\begin{center}
+			\begin{minipage}[c]{0.45\textwidth}
+				\begin{flushleft}
+					\includegraphics[width=0.8\textwidth]{images/loghi/logo_unict_orizzontale.png}
+				\end{flushleft}
+			\end{minipage}
+			\hfill
+			\begin{minipage}[c]{0.45\textwidth}
+				\begin{flushright}
+					\includegraphics[width=\textwidth]{images/loghi/logo_dfa_orizzontale.jpg}
+				\end{flushright}
+			\end{minipage}\\
+			\medskip
+			{\sc{Corso di Laurea in Physics}}\\
+			\hbox to \textwidth{\hrulefill}
+			\vspace{3truecm}
+			{\sc{Federico Vittorio}} 
+			\vfill
+			{\Huge\bfseries Astrophysics Laboratory\par}
+			\vfill
+			\centerline{\hbox to 5truecm{\hrulefill}}
+			\medskip
+			{\normalsize\itshape Versione Italiana\par}
+			\centerline{\hbox to 5truecm{\hrulefill}}
+			\vfill\vfill    %spazi verticali
+			\hbox to \textwidth{\hrulefill}
+			{\sc{A.A. 2026-2027}} %data
+		\end{center}
+	\end{titlepage}
+	\clearpage	
+
+\tableofcontents
+
+\input{lezioni_ita/lezione01.tex}
+
+\input{lezioni_ita/lezione02.tex}
+
+\input{lezioni_ita/lezione03.tex}
+
+\input{lezioni_ita/lezione04.tex}
+
+\input{lezioni_ita/lezione05.tex}
+
+\input{lezioni_ita/lezione06.tex}
+
+
+\end{document}
