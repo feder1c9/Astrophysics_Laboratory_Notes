@@ -1,1 +1,231 @@
-\chapter{Lezione 5 -}
+\chapter{Lezione 5 - 28/10/2026}
+
+\section{Introduzione ai Sensori CCD e al Concetto di Pixel}
+
+L'immagine acquisita e visualizzata tramite DS9 non è un oggetto astratto, ma la rappresentazione grafica di una \textbf{matrice bidimensionale} (nel nostro caso quadrata). Ogni elemento di questa matrice corrisponde a un \textbf{pixel} del rivelatore e il valore numerico ivi registrato rappresenta il flusso luminoso catturato in quella specifica porzione di piano focale.
+
+Questo dato è esattamente l'output grezzo (o \textit{raw data}) generato dal rivelatore. Il sensore CCD (\textit{Charge-Coupled Device}) utilizzato per le nostre osservazioni è fisicamente costituito da una griglia di pixel avente dimensioni $2048 \times 2048$.
+Questo parametro è un \textit{dato costruttivo} dell'hardware.
+
+\subsection{Risoluzione Spaziale e Campionamento}
+
+Le dimensioni fisiche del sensore e dei singoli pixel (es. $10.31$ micron per lato) determinano, insieme all'ottica del telescopio, due caratteristiche critiche dell'osservazione:
+\begin{enumerate}
+\item Il \textbf{Field of View (FoV):} l'area di cielo che possiamo registrare in una singola esposizione (o l'intervallo spettrale, qualora si operi in spettroscopia).
+\item Il \textbf{Potere Risolutivo (Risoluzione):} la capacità di distinguere due sorgenti vicine.
+\end{enumerate}
+
+Tutto ciò che accade all'interno dell'area fisica di un singolo pixel è un'informazione spazialmente perduta. Se la luce proveniente da due stelle distinte cade sul medesimo pixel, il sensore registrerà un unico segnale luminoso cumulativo. Tali stelle sono, dal punto di vista strumentale, al di sotto del potere risolutivo e risulteranno indistinguibili.
+
+Tuttavia, la risoluzione finale non dipende esclusivamente dalle dimensioni del pixel, ma è in competizione con la \textbf{Point Spread Function (PSF)} dello strumento (telescopio + filtri + ottiche aggiuntive).
+Se la PSF (ovvero l'allargamento del profilo gaussiano della sorgente puntiforme causato dall'ottica e dal seeing) ha un diametro che copre più pixel, l'elemento limite di risoluzione diventa la PSF stessa, non il pixel.
+
+\textbf{Esempio di Sovracampionamento (\textit{Oversampling}):}
+Se il telescopio genera una PSF larga circa $6$ pixel, ma noi accoppiamo al sistema una camera con pixel minutissimi (es. $0.13$ micron), la luce di una singola stella si "spalmerà" su moltissimi pixel senza fornire alcun reale aumento di dettaglio. In questo caso, stiamo lavorando in sovracampionamento: stiamo di fatto mediando il segnale su più pixel senza guadagnare informazione utile, esattamente come se applicassimo un \textit{binning} informatico.
+Per tale motivo, la scelta del sensore è sempre un compromesso progettuale intimamente legato alle specifiche del telescopio al quale verrà accoppiato.
+
+\section{Struttura dei Dati Astronomici: Il Formato FITS}
+
+Per analizzare dal punto di vista del calcolo i dati raccolti, ci appoggiamo a linguaggi di programmazione vettoriale come \textbf{IDL} (o analoghi come il C o Python). Il vantaggio di IDL è quello di combinare in un unico ambiente le capacità di calcolo matriciale puro e le routine per la visualizzazione grafica.
+
+Le immagini astronomiche standard sono salvate in formato \textbf{FITS} (\textit{Flexible Image Transport System}).
+Un file FITS è strutturato in due componenti principali:
+\begin{itemize}
+\item L'\textbf{Header} (o testata): È un file di testo formato da stringhe, contenente tutti i metadati dell'osservazione. In esso sono riportati i dati del telescopio, il tempo di esposizione, il filtro usato, il luogo, le coordinate dell'oggetto e la massa d'aria (\textit{airmass}), parametro fondamentale per calcolare, ad esempio, la retta di Bouguer per correggere la magnitudine atmosferica. L'header è strutturato tipicamente come un vettore stringa di circa $40$ elementi, dove ogni elemento corrisponde a una riga.
+\item L'\textbf{Immagine Scientifica} (o \textit{Data Array}): È la matrice vera e propria contenente i valori di conteggio per ciascun pixel (es. matrice $2048 \times 2048$ formata da numeri interi, \textit{Integer Array}). Poiché le camere registrano un numero di conteggi discreti (ADU), i pixel non possono assumere valori decimali.
+\end{itemize}
+
+\subsection{Lettura di un file FITS in IDL}
+
+In un linguaggio di basso livello (come il C), per estrarre i dati da un'immagine di $2048 \times 2048$ pixel, sarebbe necessario scrivere due cicli \textit{for} annidati per scansionare gli indici di riga e di colonna (es. da $0$ a $2047$).
+
+In IDL (e grazie alle librerie dedicate come \textbf{AstroLib}), questo passaggio è automatizzato da funzioni pre-compilate. Il comando standard per la lettura di un'immagine è \texttt{readfits}.
+La sintassi basilare è:
+\begin{equation}
+\texttt{image\_star} = \texttt{readfits ('nome\_file.fits', header\_star)}
+\end{equation}
+In questo comando:
+\begin{itemize}
+\item \texttt{image\_star} è la variabile (una matrice) a cui viene assegnato il contenuto dei pixel;
+\item \texttt{nome\_file.fits} è il file da leggere (racchiuso tra apici e completo del suo percorso);
+\item \texttt{header\_star} è la variabile a cui viene assegnato il testo dell'header.
+\end{itemize}
+Stampando la variabile dell'header (\texttt{print, header\_star}), si ottengono a terminale tutte le informazioni ancillari del frame osservativo.
+
+\section{Effetti Strumentali e Immagini di Calibrazione}
+
+Quando si osserva una stella e si estrae un profilo (ad esempio visualizzando una riga della matrice), si noterà che il segnale non è distribuito su un fondo perfettamente piatto, e l'immagine si presenta più illuminata al centro e meno ai bordi.
+Questo è dovuto a due effetti strumentali fisici:
+\begin{enumerate}
+\item \textbf{Disuniformità dei pixel:} I pixel non hanno un'efficienza quantica perfettamente identica. Se investiti dallo stesso flusso fotonico (es. 100 fotoni), alcuni registreranno statisticamente di più, altri di meno; alcuni pixel potrebbero inoltre essere difettosi o guasti (\textit{bad pixels}).
+\item \textbf{Vignettatura:} L'ottica del telescopio tende a concentrare più luce al centro del piano focale rispetto ai bordi.
+\end{enumerate}
+
+Per fare fotometria ad alta precisione, l'immagine grezza deve essere purificata (calibrata) da queste "firme" strumentali. Durante una sessione osservativa (solitamente all'inizio o alla fine della notte) si acquisiscono tre specifiche tipologie di immagini di calibrazione.
+
+\subsection{Immagini di BIAS}
+Il Bias è un'immagine acquisita a \textbf{tempo di esposizione nullo} ($t = 0$) e ad \textbf{otturatore chiuso}. La sua funzione è misurare il livello base ("zero") del sensore.
+In teoria l'immagine dovrebbe essere una matrice di soli zeri. In pratica, il sensore registra un livello di conteggi costante e uniforme (ad esempio attorno ai $400$ ADU, visibile chiaramente caricando l'immagine di Bias su DS9 e regolando la \textit{z-scale}). Questo segnale \textit{non è fotonico}, bensì è causato dalla tensione di offset dell'elettronica (necessaria per impedire conteggi negativi). Questo fondo base andrà sottratto a tutte le altre acquisizioni.
+
+\subsection{Immagini di DARK}
+L'elettronica del CCD, operando a temperatura di esercizio, produce un certo numero di elettroni termici non derivanti dai fotoni (per \textbf{effetto termoionico}). Questo accumulo di carica si comporta come un rumore, proporzionale al tempo di esposizione e alla temperatura del sensore.
+Per misurarlo, si riprendono immagini di Dark: esposizioni ad \textbf{otturatore chiuso} di durata identica a quella che sarà poi la posa per l'osservazione scientifica (es. $30$ secondi).
+Nel caso si cambi il tempo di posa sulle stelle in corso d'opera (es. da $30$ sec a $1$ minuto) e non si disponga dei Dark corretti, è possibile scalare matematicamente l'intensità del Dark precedentemente acquisito (poiché l'accumulo è lineare). Tuttavia, la buona norma prevede la ripresa di una serie di Dark specifici per ogni diverso tempo di posa scientifico utilizzato.
+
+\subsection{Immagini di FLAT Field}
+Il Flat è l'unica calibrazione acquisita ad otturatore aperto (quindi ricevendo \textbf{fotoni}). Il suo scopo è registrare la risposta disuniforme dei pixel e la vignettatura del telescopio, esponendo il sensore a una \textbf{sorgente luminosa spazialmente uniforme}.
+\begin{itemize}
+\item \textit{In Fotometria (Imaging):} Si espone il telescopio a una superficie illuminata uniformemente (uno schermo bianco all'interno della cupola) o a un'area di cielo libero da stelle (flat-field di cielo al crepuscolo o \textit{twilight flat}).
+\item \textit{In Spettroscopia:} La sorgente uniforme deve esserlo non solo spazialmente, ma anche spettralmente. Si usano lampade alogene che emettono un continuo piatto per tutte le lunghezze d'onda.
+\end{itemize}
+
+Dividendo l'immagine astronomica per il master flat, si normalizza la risposta di ogni pixel, appiattendo elettronicamente il campo.
+
+\subsection{Statistica delle Calibrazioni (Master Frames)}
+Per ridurre l'errore statistico, si acquisisce sempre un numero multiplo di ciascuna calibrazione (es. 10 immagini di Bias, 10 di Dark, 10 di Flat) per poi farne una mediana matematica, generando così un singolo file robusto (Master Bias, Master Dark, Master Flat) da applicare ai dati grezzi.
+
+\section{Struttura dei Codici in IDL}
+In IDL, si possono scrivere file di testo contenenti una serie di subroutine (come \texttt{media\_flat}, \texttt{media\_dark}, \texttt{media\_bias}) chiamate in sequenza logica.
+
+La sintassi di una routine richiede che essa inizi con il comando \texttt{pro} seguito dal nome della routine, e si chiuda con il comando \texttt{end}.
+Ad esempio:
+\begin{verbatim}
+pro media_flat
+[... corpo della routine ...]
+end
+\end{verbatim}
+
+Per il passaggio di variabili tra subroutine distinte all'interno dello stesso codice, si utilizza l'istruzione \texttt{common}. Questa funzione dichiara una variabile come globale.
+Ad esempio, se la subroutine \texttt{limits} calcola due valori \texttt{z1} e \texttt{z2}, dichiarandoli all'interno di un \texttt{common}, un'altra subroutine (come \texttt{visual}) potrà leggere automaticamente tali variabili e sfruttarne il contenuto (come per plottare i corretti limiti scala) senza doverle passare esplicitamente a riga di comando.
+
+\section{Gestione delle Variabili e Compilazione in IDL}
+
+In IDL, vi sono diversi metodi per gestire e trasportare le variabili tra le varie \textit{subroutine} senza doverne ricalcolare costantemente i valori. Un metodo consiste nell'utilizzare l'istruzione \texttt{common} (ad esempio \texttt{common limits\_zscale}). Se una determinata routine ha il compito di calcolare dei limiti numerici (es. $0.01$ e $0.2$), questi valori possono essere allocati nel \texttt{common}. In questo modo, quando verrà richiamata una routine successiva (come \texttt{visual}), essa leggerà direttamente i valori precedentemente salvati in quest'area di memoria condivisa, risparmiando tempo di calcolo.
+
+Un metodo alternativo è il passaggio diretto dei parametri: la variabile stessa (come l'immagine \texttt{image} o il nome del file) viene passata come argomento specifico nella sintassi di chiamata della routine (es. \texttt{limits, image}).
+
+Quando si lancia un file in IDL contenente molteplici \textit{subroutine} (come \texttt{media\_flat}, \texttt{media\_dark}, \texttt{media\_bias}, \texttt{correzione}, \texttt{limits}, \texttt{visual}), il compilatore le elabora tutte sequenzialmente. Qualora vi siano errori di sintassi, il programma interrompe la compilazione indicando la routine e la riga esatta in cui è presente l'errore (ad esempio nella routine \texttt{correzione}), permettendo una rapida correzione.
+
+\section{Analisi delle Immagini di Calibrazione (Master Frames)}
+
+Le routine automatizzate consentono di analizzare e mediare i file di calibrazione. Eseguendo la routine per i \textbf{Bias}, i \textbf{Dark} e i \textbf{Flat}, possiamo visualizzare la struttura fisica e i difetti del sensore.
+
+\subsection{Il Bias e il Rumore Elettronico di Fondo}
+Visualizzando un'immagine di Bias si può notare un dettaglio costruttivo dell'hardware: il sensore teorico da $2048 \times 2048$ pixel è, in questo caso specifico, l'assemblaggio di 4 CCD indipendenti da $512 \times 512$ pixel. Sebbene dal punto di vista dell'analisi dati l'array sia trattato in maniera trasparente come un unico chip, nell'immagine di Bias (che non riceve illuminazione esterna) emergono leggere differenze di risposta elettronica tra i 4 quadranti.
+
+Estraendo una singola riga o colonna (es. la riga 948) si osserva l'andamento del flusso pixel per pixel: il segnale non è zero, ma si attesta su un valore base (es. $\sim 400 \text{ ADU}$) con una certa oscillazione statistica.
+Mediando $10$ immagini singole di Bias, si ottiene un \textbf{Master Bias}. Nel Master Bias il rumore e le oscillazioni sono drasticamente ridotti grazie alla statistica.
+L'andamento del fondo assume una forma costante (un gradino che sale e si stabilizza). Anche se le differenze di livello sono minime (es. $10 \text{ ADU}$, che, moltiplicate per il gain di $0.8$, corrispondono a soli $8$ fotoni), si tratta comunque di un segnale non fotonico reale. Tale offset elettronico deve essere rigorosamente sottratto alle immagini per calibrare lo zero strumentale.
+
+\subsection{Il Dark e i Pixel Guasti (Hot Pixels)}
+Visualizzando un'immagine di \textbf{Dark} (anch'essa acquisita ad otturatore chiuso, ma con un tempo di esposizione, es. $30$ secondi), si osserva un fondo pressoché costante, ma costellato da \textbf{spikes}. Questi picchi di segnale (che visivamente creano un "effetto neve") corrispondono ai \textbf{bad pixels} o \textbf{hot pixels}: pixel difettosi che accumulano cariche termiche anomale pur in assenza di fotoni incidenti.
+Poiché questi falsi segnali si presenteranno identici anche sull'immagine della stella (potendo essere scambiati per sorgenti reali), è fondamentale eliminarli. Anche in questo caso, si mediano diverse esposizioni (es. $5$ frame) per creare un \textbf{Master Dark} dal quale le oscillazioni casuali vengono attenuate, isolando la reale firma termica del sensore.
+
+\subsection{Il Flat Field e la Vignettatura}
+L'immagine di \textbf{Flat} evidenzia in modo estremamente chiaro l'effetto di \textbf{vignettatura}. Modificando la \textit{z-scale}, si nota come il segnale sia molto intenso al centro del CCD e decada progressivamente verso i bordi. Estraendo una riga della matrice, il profilo assume un tipico andamento a "campana", seppur con discontinuità dovute all'assemblaggio dei sensori.
+Mediando $5$ immagini di flat si ottiene il \textbf{Master Flat}, che rappresenta una mappa fedele e ad alto rapporto segnale/rumore dell'illuminazione del piano focale e dell'efficienza quantica di ogni singolo pixel.
+
+\section{Procedura di Riduzione Dati (Data Reduction)}
+
+L'immagine scientifica grezza su cui si lavora inizialmente presenta numerosi difetti:
+\begin{itemize}
+\item Il fondo cielo non parte da $0$, ma da valori spuri (es. $\sim 1500 \text{ ADU}$).
+\item Sono presenti numerosi \textit{spikes} (pixel caldi) scambiabili per stelle.
+\item L'intero campo è affetto da vignettatura.
+\end{itemize}
+Applicando i Master Frame, l'immagine viene progressivamente ripulita.
+
+\subsection{Normalizzazione del Master Flat}
+Prima di poter dividere l'immagine scientifica per il Master Flat, quest'ultimo necessita di una correzione. Il Master Flat è un'immagine acquisita accumulando moltissimo segnale per massimizzare il rapporto segnale/rumore (raggiungendo tipicamente valori di $25.000 - 40.000 \text{ ADU}$).
+Se si dividesse brutalmente un'immagine stellare (che magari raggiunge i $2.000 \text{ ADU}$) per $40.000 \text{ ADU}$, si otterrebbero valori decimali (\textit{float} o \textit{double}) piccolissimi, alterando fisicamente la scala dei conteggi dell'immagine.
+
+Per correggere la vignettatura e la disuniformità preservando l'ordine di grandezza dei fotoni originali, il Master Flat deve essere \textbf{normalizzato a 1}.
+Questo processo si esegue dividendo la matrice del Master Flat per il suo valore massimo (o, più robustamente, per il valore della sua \textbf{mediana}). In questo modo, la matrice risultante oscillerà tra valori prossimi a $1$ al centro (es. $1.0$) e frazioni leggermente inferiori ai bordi (es. $0.8$ o $0.9$). La divisione finale dell'immagine scientifica per questo \textbf{Flat Normalizzato} modulerà le intensità spaziali senza abbattere numericamente i conteggi.
+
+\subsection{Confronto tra Immagine Grezza e Corretta}
+Una volta applicate tutte le correzioni (Bias, Dark e Flat Normalizzato), l'immagine finale ripulita si presenterà radicalmente diversa:
+\begin{itemize}
+\item Il fondo (background) crollerà a valori fisici reali (es. da $1500$ a $1100 \text{ ADU}$), poiché l'offset elettronico di $\sim 400 \text{ ADU}$ è stato sottratto col Bias.
+\item Gli spikes termici risulteranno rimossi o fortemente attenuati grazie alla sottrazione del Dark.
+\item Il profilo spaziale del fondo cielo risulterà perfettamente \textbf{piatto} ed omogeneo (da bordo a bordo), grazie alla divisione per il Flat.
+\end{itemize}
+Ripetendo la fotometria di apertura (calcolo di background e flusso netto) su questa nuova immagine calibrata, si otterrà una stima della magnitudine strumentale con un \textbf{rapporto segnale/rumore (SNR)} enormemente superiore rispetto all'immagine \textit{raw}.
+
+\section{Implementazione in IDL: Costruzione del Cubo di Dati}
+
+Analizziamo i passaggi sintattici automatizzati all'interno delle routine (ad esempio in \texttt{media\_flat}):
+\begin{enumerate}
+\item \textbf{Lettura:} Vengono letti singolarmente i 5 file raw di flat tramite ripetuti comandi \texttt{readfits}.
+\item \textbf{Assemblaggio:} Viene creata una matrice tridimensionale (un cubo di dati) denominata \texttt{tot}. Essendo i singoli file delle matrici $2048 \times 2048$, in IDL la sintassi per impilarli sfrutta le parentesi quadre:
+\begin{equation}
+tot = [ [[flat_1]], [[flat_2]], [[flat_3]], [[flat_4]], [[flat_5]] ]
+\end{equation}
+Il risultato è un array di dimensioni $2048 \times 2048 \times 5$.
+\item \textbf{Medianizzazione:} Per estrarre il Master Flat, si opera la mediana lungo l'asse $z$ (la terza dimensione del cubo) tramite il comando \texttt{median(tot, dimension=3)}.
+A questa funzione viene affiancata la \textit{flag} \textbf{\texttt{/NAN}} (Not A Number). Questo parametro avvisa il compilatore di ignorare eventuali pixel il cui calcolo produce un risultato non numerico (NaN), evitando che il software generi messaggi di errore o vada in \textit{out of memory}, limitandosi a registrare un valore NaN nell'elemento corrispondente della matrice mediana.
+\item \textbf{Salvataggio (Writefits):} La matrice mediana risultante (\texttt{master\_flat}) viene scritta fisicamente sul disco fisso come file FITS tramite il comando \texttt{writefits}, generando un file \texttt{masterflat.fits} archiviato nella directory di lavoro.
+\end{enumerate}
+Questi medesimi passaggi vengono reiterati nelle subroutines \texttt{media\_dark} e \texttt{media\_bias}.
+
+\section{Equazioni Formali per la Calibrazione (Riduzione Dati)}
+
+Il passaggio conclusivo risiede nella routine \texttt{correzione}, che legge dal disco i tre Master Frame salvati ed esegue l'algebra matriciale finale. Sebbene la routine li esegua in un unico blocco, i passaggi logico-matematici rigorosi sono i seguenti:
+
+\textbf{1. Calibrazione del Master Dark:}
+Dal Master Dark viene sottratto il Master Bias, ottenendo un Dark contenente il solo accumulo termico:
+\begin{equation}
+D_{\text{corr}} = \text{MasterDark} - \text{MasterBias}
+\end{equation}
+
+\textbf{2. Calibrazione del Master Flat:}
+Dal Master Flat si sottrae il Bias e il Dark termico. Poiché il Flat e il Dark possono avere tempi di esposizione differenti, il Dark termico deve essere scalato linearmente.
+Se il Flat ha tempo di esposizione $t_{\text{flat}}$ (es. $1.6 \text{ s}$) e il Dark originario ha tempo $t_{\text{dark}}$ (es. $30 \text{ s}$), l'equazione è:
+\begin{equation}
+F_{\text{corr}} = \text{MasterFlat} - \text{MasterBias} - D_{\text{corr}} \cdot \left( \frac{t_{\text{flat}}}{t_{\text{dark}}} \right)
+\end{equation}
+Successivamente, si procede alla \textbf{normalizzazione}:
+\begin{equation}
+F_{\text{norm}} = \frac{F_{\text{corr}}}{\text{mediana}(F_{\text{corr}})}
+\end{equation}
+
+\textbf{3. Correzione dell'Immagine Scientifica (Raw):}
+Sia $S_{\text{raw}}$ l'immagine stellare grezza, con un tempo di esposizione $t_{\text{stella}}$. Il flusso scientifico calibrato finalizzato alla fotometria ($S_{\text{corr}}$) si ottiene applicando la seguente equazione matriciale pixel-per-pixel:
+\begin{equation}
+S_{\text{corr}} = \frac{S_{\text{raw}} - \text{MasterBias} - D_{\text{corr}} \cdot \left( \frac{t_{\text{stella}}}{t_{\text{dark}}} \right)}{F_{\text{norm}}}
+\end{equation}
+\textit{Nota:} Se, come raccomandato, il tempo di posa del Dark è identico a quello dell'immagine scientifica ($t_{\text{stella}} = t_{\text{dark}}$), il fattore di scala è pari a $1$ e può essere omesso dall'equazione.
+
+\section{Preparazione delle Osservazioni e Acquisizione dei Master Frames}
+
+Quando ci si reca all'osservatorio per preparare la sessione osservativa, è fondamentale pianificare preventivamente l'acquisizione dei file di calibrazione. Nello specifico, la procedura rigorosa impone di acquisire:
+\begin{itemize}
+\item Un set di \textbf{Bias};
+\item Un set di \textbf{Flat Field};
+\item Un set di \textbf{Dark Frame}.
+\end{itemize}
+
+È cruciale che i Dark frame vengano acquisiti con tempi di esposizione paragonabili a quelli che verranno utilizzati per le immagini stellari. Tali acquisizioni di calibrazione vanno eseguite fisicamente al telescopio prima che inizi la notte osservativa vera e propria. Soltanto al termine di questa fase preparatoria si procede con l'acquisizione delle immagini scientifiche (i campi stellari).
+
+\subsection{L'Importanza della Calibrazione e la Propagazione dell'Errore}
+
+Finché l'operatore si trova fisicamente al telescopio, ha il vantaggio di poter monitorare e verificare i dati in tempo reale: qualora si rendesse conto di aver commesso un errore procedurale (ad esempio un'immagine acquisita male o un parametro errato), è ancora in tempo per ripetere l'acquisizione.
+
+Al contrario, se tali difetti vengono riscontrati soltanto il giorno successivo, durante la fase di \textbf{riduzione dei dati} al computer, non vi è più modo di rimediare alle mancanze strumentali. In quel caso, l'operatore è costretto ad adattarsi e a scendere a compromessi con i dati parziali a disposizione.
+
+Per questo motivo, queste operazioni preliminari, seppur apparentemente banali e routinarie, richiedono la massima attenzione. Da esse dipende interamente la qualità quantitativa del risultato finale: una calibrazione rigorosa restituirà una stima della magnitudine stellare caratterizzata da un elevato \textbf{rapporto segnale/rumore (SNR)}, rendendola una misura di eccellente fattura. Al contrario, una cattiva calibrazione produrrà un SNR scarso, restituendo un numero statisticamente inadeguato, anche laddove il processo di misura in sé fosse stato eseguito correttamente.
+
+In ultima analisi, l'incertezza statistica finale (il classico $\pm \sigma$ da associare in barra d'errore al valore della misurazione) dipende fondamentalmente dalla bontà di questa delicata fase di calibrazione.
+
+\section{Variabili Ambientali: Trasparenza Atmosferica e Seeing}
+
+Oltre alla precisione strumentale, l'osservazione astronomica è indissolubilmente legata alle variabili ambientali. Esiste sempre l'eventualità di incappare in una nottata non ottimale dal punto di vista della \textbf{trasparenza del cielo} e del \textbf{seeing} atmosferico.
+
+A titolo di aneddoto storico sulle dinamiche universitarie passate: nel vecchio ordinamento universitario quadriennale (post-bellico), il corso di studi in Fisica era strutturato diversamente da quello odierno. Prevedeva corsi denominati "Sperimentazioni di Fisica 1 e 2" nei primi due anni (assimilabili agli attuali laboratori del primo biennio), per poi proseguire con "Laboratorio 1" al terzo anno e "Laboratorio 2" al quarto anno.
+
+Durante una sessione di astrofisica per il corso di Laboratorio 1, un collega studente fece giustamente notare al docente responsabile che il \textit{seeing} di quella specifica nottata non era stato granché, motivo per cui non si era riusciti a migliorare ulteriormente la qualità dei dati estratti.
+La risposta del professore, pronunciata con assoluta serietà, fu:
+\begin{quote}
+\textit{«E perché non avete settato meglio il seeing prima di iniziare?»}
+\end{quote}
+
+Per quanto l'affermazione fosse paradossale, racchiude un ineluttabile fondo di verità pratica: le condizioni della notte osservativa sono un dato di fatto incontrollabile su cui bisogna operare. Se le condizioni atmosferiche si rivelano troppo avverse e si sta operando in una struttura facilmente raggiungibile in sede (come l'Osservatorio Astrofisico di \textbf{Serra La Nave}), l'unica opzione sensata è accettare i limiti fisici della serata, sospendere, e programmare di tornare il giorno successivo per eseguire le acquisizioni nelle corrette condizioni operative.
